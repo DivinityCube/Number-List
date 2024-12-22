@@ -22,12 +22,56 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ezodf import Sheet
 from odf.opendocument import OpenDocumentText
 from odf.text import P
-version = '(Version 0.73) '
+version = '(Version 0.74 BETA) '
 window = tk.Tk()
 window.file_extension = ''
 listbox = None
 counter = 1
 SESSION_FILE = "session.json"
+
+def calculate_range(listbox):
+  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+  if not numbers:
+    messagebox.showerror("Error", "The list is empty, cannot calculate range.", parent=window)
+    return
+  result = max(numbers) - min(numbers)
+  messagebox.showinfo("Range", f"The range of the list is: {result}")
+
+def calculate_quartiles(listbox):
+  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+  if not numbers:
+    messagebox.showerror("Error", "The list is empty, cannot calculate quartiles.", parent=window)
+    return
+  q1 = np.percentile(numbers, 25)
+  q2 = np.percentile(numbers, 50)
+  q3 = np.percentile(numbers, 75)
+  messagebox.showinfo("Quartiles", f"Q1: {q1}\nQ2: {q2}\nQ3: {q3}")
+
+def calculate_iqr(listbox):
+    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    if not numbers:
+        messagebox.showerror("Error", "The list is empty! Cannot calculate IQR.", parent=window)
+        return
+    q1 = np.percentile(numbers, 25)
+    q3 = np.percentile(numbers, 75)
+    result = q3 - q1
+    messagebox.showinfo("IQR", f"The interquartile range (IQR) of the list is: {result}")
+
+def calculate_minimum(listbox):
+    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    if not numbers:
+        messagebox.showerror("Error", "The list is empty! Cannot calculate minimum.", parent=window)
+        return
+    result = min(numbers)
+    messagebox.showinfo("Minimum", f"The minimum value in the list is: {result}")
+
+def calculate_maximum(listbox):
+    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    if not numbers:
+        messagebox.showerror("Error", "The list is empty! Cannot calculate maximum.", parent=window)
+        return
+    result = max(numbers)
+    messagebox.showinfo("Maximum", f"The maximum value in the list is: {result}")
 
 def remove_duplicates(listbox):
     unique_items = []
@@ -719,7 +763,7 @@ def about(window):
   title_label.pack()
   update_label = tk.Label(about_window, text="The 'No More Errors' Update")
   update_label.pack()
-  version_label = tk.Label(about_window, text="Version 0.73")
+  version_label = tk.Label(about_window, text="Version 0.74 BETA")
   version_label.pack()
   contributor_label = tk.Label(about_window, text="Contributors:")
   contributor_label.pack()
@@ -1373,6 +1417,11 @@ def create_new_window():
   stats_menu.add_command(label="Mode", command=lambda: calculate_mode(listbox))
   stats_menu.add_command(label="Variance", command=lambda: calculate_variance(listbox))
   stats_menu.add_command(label="Standard Deviation", command=lambda: calculate_standard_deviation(listbox))
+  stats_menu.add_command(label="Range", command=lambda: calculate_range(listbox))
+  stats_menu.add_command(label="Quartiles", command=lambda: calculate_quartiles(listbox))
+  stats_menu.add_command(label="Interquartile Range (IQR)", command=lambda: calculate_iqr(listbox))
+  stats_menu.add_command(label="Minimum", command=lambda: calculate_minimum(listbox))
+  stats_menu.add_command(label="Maximum", command=lambda: calculate_maximum(listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
@@ -1526,6 +1575,11 @@ def create_window():
   stats_menu.add_command(label="Mode", command=lambda: calculate_mode(listbox))
   stats_menu.add_command(label="Variance", command=lambda: calculate_variance(listbox))
   stats_menu.add_command(label="Standard Deviation", command=lambda: calculate_standard_deviation(listbox))
+  stats_menu.add_command(label="Range", command=lambda: calculate_range(listbox))
+  stats_menu.add_command(label="Quartiles", command=lambda: calculate_quartiles(listbox))
+  stats_menu.add_command(label="Interquartile Range (IQR)", command=lambda: calculate_iqr(listbox))
+  stats_menu.add_command(label="Minimum", command=lambda: calculate_minimum(listbox))
+  stats_menu.add_command(label="Maximum", command=lambda: calculate_maximum(listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
