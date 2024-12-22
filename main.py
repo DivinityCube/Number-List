@@ -22,7 +22,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ezodf import Sheet
 from odf.opendocument import OpenDocumentText
 from odf.text import P
-version = '(Version 0.73 FINAL BETA) '
+version = '(Version 0.73) '
 window = tk.Tk()
 window.file_extension = ''
 listbox = None
@@ -719,7 +719,7 @@ def about(window):
   title_label.pack()
   update_label = tk.Label(about_window, text="The 'No More Errors' Update")
   update_label.pack()
-  version_label = tk.Label(about_window, text="Version 0.73 FINAL BETA")
+  version_label = tk.Label(about_window, text="Version 0.73")
   version_label.pack()
   contributor_label = tk.Label(about_window, text="Contributors:")
   contributor_label.pack()
@@ -943,85 +943,91 @@ def filter_custom_range(window, listbox, undo_redo_manager, history_manager):
     tk.Button(filter_window, text="Apply Filter", command=apply_filter).pack()
 
 def export_to_csv(window, listbox):
-    numbers = listbox.get(0, tk.END)
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot export.", parent=window)
+    if listbox.size() == 0:
+        messagebox.showerror("Error", "Cannot export an empty list to CSV.", parent=window)
+        update_status(status_label, "Error: Export failed due to empty list.")
         return
-    
+
     file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")], parent=window)
     if not file_path:
         return
-    
-    with open(file_path, mode='w', newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow([number.split(". ")[1] for number in numbers])
-    
-    update_status(status_label, f"List exported to CSV: {os.path.basename(file_path)}.")
-    messagebox.showinfo("Success", f"List exported to {file_path}", parent=window)
+
+    try:
+        with open(file_path, mode='w', newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow([number.split(". ")[1] for number in listbox.get(0, tk.END)])
+        update_status(status_label, f"List exported to CSV: {os.path.basename(file_path)}.")
+        messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export to CSV: {e}", parent=window)
+        update_status(status_label, "Error: Failed to export CSV.")
 
 def export_to_excel(window, listbox):
-    numbers = listbox.get(0, tk.END)
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot export.", parent=window)
+    if listbox.size() == 0:
+        messagebox.showerror("Error", "Cannot export an empty list to .xlsx.", parent=window)
+        update_status(status_label, "Error: Export failed due to empty list.")
         return
 
     file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], parent=window)
     if not file_path:
         return
 
-    data = [json.loads(item.split(". ")[1]) if "[" in item else float(item.split(". ")[1]) for item in numbers]
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-
-    if isinstance(data[0], list):
-        for row in data:
-            sheet.append(row)
-    else:
-        for value in data:
-            sheet.append([value])
-
-    workbook.save(file_path)
-    messagebox.showinfo("Success", f"Data exported to {file_path}", parent=window)
+    try:
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        for i, number in enumerate(listbox.get(0, tk.END), start=1):
+            sheet.cell(row=i, column=1, value=number.split(". ")[1])
+        workbook.save(file_path)
+        update_status(status_label, f"List exported to .xlsx: {os.path.basename(file_path)}.")
+        messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export to .xlsx: {e}", parent=window)
+        update_status(status_label, "Error: Failed to export .xlsx.")
 
 def export_to_json(window, listbox):
-    numbers = listbox.get(0, tk.END)
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot export.", parent=window)
+    if listbox.size() == 0:
+        messagebox.showerror("Error", "Cannot export an empty list to JSON.", parent=window)
+        update_status(status_label, "Error: Export failed due to empty list.")
         return
 
     file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")], parent=window)
     if not file_path:
         return
 
-    data = [json.loads(item.split(". ")[1]) if "[" in item else float(item.split(". ")[1]) for item in numbers]
-    with open(file_path, 'w') as file:
-        json.dump(data, file, indent=4)
-    messagebox.showinfo("Success", f"Data exported to {file_path}", parent=window)
+    try:
+        data = [number.split(". ")[1] for number in listbox.get(0, tk.END)]
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+        update_status(status_label, f"List exported to JSON: {os.path.basename(file_path)}.")
+        messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export to JSON: {e}", parent=window)
+        update_status(status_label, "Error: Failed to export JSON.")
 
 def export_to_ods(window, listbox):
-    numbers = listbox.get(0, tk.END)
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot export.", parent=window)
+    if listbox.size() == 0:
+        messagebox.showerror("Error", "Cannot export an empty list to ODS.", parent=window)
+        update_status(status_label, "Error: Export failed due to empty list.")
         return
 
     file_path = filedialog.asksaveasfilename(defaultextension=".ods", filetypes=[("ODS files", "*.ods")], parent=window)
     if not file_path:
         return
 
-    data = [json.loads(item.split(". ")[1]) if "[" in item else float(item.split(". ")[1]) for item in numbers]
-    spreadsheet = ezodf.newdoc(doctype="ods", filename=file_path)
-    sheet = ezodf.Sheet("Sheet1", size=(len(data), len(data[0]) if isinstance(data[0], list) else 1))
-    spreadsheet.sheets.append(sheet)
+    try:
+        spreadsheet = ezodf.newdoc(doctype="ods", filename=file_path)
+        sheet = ezodf.Sheet("Sheet1")
+        spreadsheet.sheets += sheet
 
-    for i, row in enumerate(data):
-        if isinstance(row, list):
-            for j, value in enumerate(row):
-                sheet[i, j].set_value(value)
-        else:
-            sheet[i, 0].set_value(row)
+        for i, number in enumerate(listbox.get(0, tk.END)):
+            sheet.append([ezodf.Cell(number.split(". ")[1])])
 
-    spreadsheet.save()
-    messagebox.showinfo("Success", f"Data exported to {file_path}", parent=window)
+        spreadsheet.save()
+        update_status(status_label, f"List exported to ODS: {os.path.basename(file_path)}.")
+        messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export to ODS: {e}", parent=window)
+        update_status(status_label, "Error: Failed to export ODS.")
 
 def copy_to_clipboard(window, listbox):
   numbers = listbox.get(0, tk.END)
@@ -1096,6 +1102,11 @@ def calculate_standard_deviation(listbox):
 def apply_transformation(window, listbox, transformation, **kwargs):
     numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
     transformer = DataTransformer(numbers)
+
+    if listbox.size() == 0:
+      messagebox.showerror("Error", "Cannot apply transformation to an empty list.", parent=window)
+      update_status(status_label, "Error: Transformation failed due to an empty list.")
+      return
     
     try:
         if transformation == 'min_max':
