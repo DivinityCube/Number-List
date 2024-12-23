@@ -22,12 +22,75 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ezodf import Sheet
 from odf.opendocument import OpenDocumentText
 from odf.text import P
-version = '(Version 0.74 FINAL BETA) '
+version = '(Version 0.74) '
 window = tk.Tk()
 window.file_extension = ''
 listbox = None
 counter = 1
 SESSION_FILE = "session.json"
+
+def calculate_correlation_and_covariance(window, listbox):
+    try:
+        data = [json.loads(row.split(". ")[1]) for row in listbox.get(0, tk.END)]
+        if not all(isinstance(row, list) and len(row) == len(data[0]) for row in data):
+            raise ValueError("Data must be a valid 2D array.")
+
+        df = pd.DataFrame(data)
+        correlation_matrix = df.corr()
+        covariance_matrix = df.cov()
+
+        results = [
+            "Correlation Matrix:\n" + correlation_matrix.to_string(),
+            "\nCovariance Matrix:\n" + covariance_matrix.to_string()
+        ]
+        show_results("Correlation and Covariance", "\n\n".join(results))
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to calculate correlation and covariance: {e}", parent=window)
+
+def save_statistics_to_file(title, results):
+    file_path = filedialog.asksaveasfilename(defaultextension=".txt",
+                                             filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                                             title="Save Statistics")
+    if file_path:
+        try:
+            with open(file_path, "w") as file:
+                file.write(f"{title}\n\n")
+                file.write(results)
+            messagebox.showinfo("Success", f"Statistics saved to {file_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save statistics: {e}")
+
+def calculate_percentile_range(window, listbox):
+    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    if not numbers:
+        messagebox.showerror("Error", "The list is empty! Cannot calculate percentiles.", parent=window)
+        return
+
+    def apply_percentile_range():
+        try:
+            step = int(step_entry.get())
+            if step <= 0 or step > 100:
+                raise ValueError("Step must be between 1 and 100.")
+            
+            results = []
+            for percentile in range(0, 101, step):
+                value = np.percentile(numbers, percentile)
+                results.append(f"{percentile}th Percentile: {value}")
+            
+            show_results("Percentile Range", "\n".join(results))
+            percentile_window.destroy()
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+
+    percentile_window = tk.Toplevel(window)
+    percentile_window.title("Calculate Percentile Range")
+
+    tk.Label(percentile_window, text="Enter step value (1-100):").pack(pady=5)
+    step_entry = tk.Entry(percentile_window)
+    step_entry.pack(pady=5)
+
+    tk.Button(percentile_window, text="Calculate", command=apply_percentile_range).pack(pady=10)
 
 def calculate_statistics_summary(listbox):
     """Calculate and display a comprehensive statistics summary for the list."""
@@ -84,7 +147,6 @@ def calculate_statistics_summary(listbox):
         messagebox.showerror("Error", f"An error occurred while calculating statistics: {e}", parent=window)
 
 def show_results(title, results):
-    """Display results in a separate scrollable window."""
     results_window = tk.Toplevel(window)
     results_window.title(title)
 
@@ -93,7 +155,11 @@ def show_results(title, results):
     text_box.configure(state='disabled')
     text_box.pack(expand=True, fill='both', padx=10, pady=10)
 
-    tk.Button(results_window, text="Close", command=results_window.destroy).pack(pady=5)
+    button_frame = tk.Frame(results_window)
+    button_frame.pack(pady=5)
+
+    tk.Button(button_frame, text="Save to File", command=lambda: save_statistics_to_file(title, results)).pack(side='left', padx=5)
+    tk.Button(button_frame, text="Close", command=results_window.destroy).pack(side='left', padx=5)
 
 def remove_duplicates(listbox):
     unique_items = []
@@ -785,7 +851,7 @@ def about(window):
   title_label.pack()
   update_label = tk.Label(about_window, text="The 'More Statistics' Update")
   update_label.pack()
-  version_label = tk.Label(about_window, text="Version 0.74 FINAL BETA")
+  version_label = tk.Label(about_window, text="Version 0.74")
   version_label.pack()
   contributor_label = tk.Label(about_window, text="Contributors:")
   contributor_label.pack()
@@ -1392,6 +1458,8 @@ def create_new_window():
   stats_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Statistics", menu=stats_menu)
   stats_menu.add_command(label="Statistics Summary", command=lambda: calculate_statistics_summary(listbox))
+  stats_menu.add_command(label="Percentile Range", command=lambda: calculate_percentile_range(window, listbox))
+  stats_menu.add_command(label="Correlation and Covariance", command=lambda: calculate_correlation_and_covariance(window, listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
@@ -1541,6 +1609,8 @@ def create_window():
   stats_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Statistics", menu=stats_menu)
   stats_menu.add_command(label="Statistics Summary", command=lambda: calculate_statistics_summary(listbox))
+  stats_menu.add_command(label="Percentile Range", command=lambda: calculate_percentile_range(window, listbox))
+  stats_menu.add_command(label="Correlation and Covariance", command=lambda: calculate_correlation_and_covariance(window, listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
