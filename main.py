@@ -22,56 +22,78 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ezodf import Sheet
 from odf.opendocument import OpenDocumentText
 from odf.text import P
-version = '(Version 0.74 BETA) '
+version = '(Version 0.74 FINAL BETA) '
 window = tk.Tk()
 window.file_extension = ''
 listbox = None
 counter = 1
 SESSION_FILE = "session.json"
 
-def calculate_range(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-    messagebox.showerror("Error", "The list is empty, cannot calculate range.", parent=window)
-    return
-  result = max(numbers) - min(numbers)
-  messagebox.showinfo("Range", f"The range of the list is: {result}")
-
-def calculate_quartiles(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-    messagebox.showerror("Error", "The list is empty, cannot calculate quartiles.", parent=window)
-    return
-  q1 = np.percentile(numbers, 25)
-  q2 = np.percentile(numbers, 50)
-  q3 = np.percentile(numbers, 75)
-  messagebox.showinfo("Quartiles", f"Q1: {q1}\nQ2: {q2}\nQ3: {q3}")
-
-def calculate_iqr(listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+def calculate_statistics_summary(listbox):
+    """Calculate and display a comprehensive statistics summary for the list."""
+    raw_numbers = [item.split(". ")[1] for item in listbox.get(0, tk.END)]
+    try:
+        numbers = [float(num) for num in raw_numbers]
+    except ValueError:
+        messagebox.showwarning("Warning", "Non-numeric entries were skipped.", parent=window)
+        numbers = [float(num) for num in raw_numbers if num.replace('.', '', 1).isdigit()]
+    
     if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot calculate IQR.", parent=window)
+        messagebox.showerror("Error", "No valid numeric data to calculate statistics.", parent=window)
         return
-    q1 = np.percentile(numbers, 25)
-    q3 = np.percentile(numbers, 75)
-    result = q3 - q1
-    messagebox.showinfo("IQR", f"The interquartile range (IQR) of the list is: {result}")
 
-def calculate_minimum(listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot calculate minimum.", parent=window)
-        return
-    result = min(numbers)
-    messagebox.showinfo("Minimum", f"The minimum value in the list is: {result}")
+    try:
+        minimum = min(numbers)
+        maximum = max(numbers)
+        range_value = maximum - minimum
+        mean_value = np.mean(numbers)
+        median_value = np.median(numbers)
+        mode_value = stats.mode(numbers, keepdims=True)[0][0] if len(set(numbers)) > 1 else "No unique mode"
 
-def calculate_maximum(listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-    if not numbers:
-        messagebox.showerror("Error", "The list is empty! Cannot calculate maximum.", parent=window)
-        return
-    result = max(numbers)
-    messagebox.showinfo("Maximum", f"The maximum value in the list is: {result}")
+        variance = np.var(numbers, ddof=1)
+        std_dev = np.std(numbers, ddof=1)
+        skewness = stats.skew(numbers)
+        kurtosis = stats.kurtosis(numbers)
+
+        q1 = np.percentile(numbers, 25)
+        q3 = np.percentile(numbers, 75)
+        iqr = q3 - q1
+
+        percentiles = {p: np.percentile(numbers, p) for p in [10, 25, 50, 75, 90]}
+
+        results = [
+            f"Minimum: {minimum}",
+            f"Maximum: {maximum}",
+            f"Range: {range_value}",
+            f"Mean: {mean_value}",
+            f"Median: {median_value}",
+            f"Mode: {mode_value}",
+            f"Variance: {variance}",
+            f"Standard Deviation: {std_dev}",
+            f"Skewness: {skewness}",
+            f"Kurtosis: {kurtosis}",
+            f"Q1: {q1}",
+            f"Q3: {q3}",
+            f"IQR: {iqr}",
+            "Percentiles:"
+        ] + [f"  {p}th Percentile: {value}" for p, value in percentiles.items()]
+
+        show_results("Statistics Summary", "\n".join(results))
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while calculating statistics: {e}", parent=window)
+
+def show_results(title, results):
+    """Display results in a separate scrollable window."""
+    results_window = tk.Toplevel(window)
+    results_window.title(title)
+
+    text_box = tk.Text(results_window, wrap=tk.WORD, height=15, width=50)
+    text_box.insert(tk.END, results)
+    text_box.configure(state='disabled')
+    text_box.pack(expand=True, fill='both', padx=10, pady=10)
+
+    tk.Button(results_window, text="Close", command=results_window.destroy).pack(pady=5)
 
 def remove_duplicates(listbox):
     unique_items = []
@@ -761,9 +783,9 @@ def about(window):
     about_window.protocol("WM_DELETE_WINDOW", close_about)
   title_label = tk.Label(about_window, text="About Number List:")
   title_label.pack()
-  update_label = tk.Label(about_window, text="The 'No More Errors' Update")
+  update_label = tk.Label(about_window, text="The 'More Statistics' Update")
   update_label.pack()
-  version_label = tk.Label(about_window, text="Version 0.74 BETA")
+  version_label = tk.Label(about_window, text="Version 0.74 FINAL BETA")
   version_label.pack()
   contributor_label = tk.Label(about_window, text="Contributors:")
   contributor_label.pack()
@@ -1100,49 +1122,6 @@ def share_via_email(window, listbox):
   window.clipboard_append(mailto_link)
   messagebox.showinfo("Share", "Mailto link copied to clipboard! Paste it in your mail client.", parent=window)
 
-def calculate_mean(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-    messagebox.showerror("Error", "The list is empty! Cannot calculate statistics.", parent=window)
-    return
-  mean_value = statistics.mean(numbers)
-  messagebox.showinfo("Mean", f"The mean of the list is: {mean_value}")
-
-def calculate_median(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-    messagebox.showerror("Error", "The list is empty! Cannot calculate statistics.", parent=window)
-    return
-  median_value = statistics.median(numbers)
-  messagebox.showinfo("Median", f"The median of the list is: {median_value}")
-
-def calculate_mode(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-    messagebox.showerror("Error", "The list is empty! Cannot calculate statistics.", parent=window)
-    return
-  try:
-    mode_value = statistics.mode(numbers)
-    messagebox.showinfo("Mode", f"The mode of the list is: {mode_value}")
-  except statistics.StatisticsError:
-    messagebox.showinfo("Mode", "No unique mode found in the list.")
-
-def calculate_variance(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-      messagebox.showerror("Error", "The list is empty! Cannot calculate statistics.", parent=window)
-      return
-  variance_value = statistics.variance(numbers)
-  messagebox.showinfo("Variance", f"The variance of the list is: {variance_value}")
-
-def calculate_standard_deviation(listbox):
-  numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
-  if not numbers:
-      messagebox.showerror("Error", "The list is empty! Cannot calculate statistics.", parent=window)
-      return
-  stddev_value = statistics.stdev(numbers)
-  messagebox.showinfo("Standard Deviation", f"The standard deviation of the list is: {stddev_value}")
-
 def apply_transformation(window, listbox, transformation, **kwargs):
     numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
     transformer = DataTransformer(numbers)
@@ -1412,16 +1391,7 @@ def create_new_window():
   history_menu.add_cascade(label="Redo to Next State", command=lambda: restore_history(history_manager.redo()))
   stats_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Statistics", menu=stats_menu)
-  stats_menu.add_command(label="Mean", command=lambda: calculate_mean(listbox))
-  stats_menu.add_command(label="Median", command=lambda: calculate_median(listbox))
-  stats_menu.add_command(label="Mode", command=lambda: calculate_mode(listbox))
-  stats_menu.add_command(label="Variance", command=lambda: calculate_variance(listbox))
-  stats_menu.add_command(label="Standard Deviation", command=lambda: calculate_standard_deviation(listbox))
-  stats_menu.add_command(label="Range", command=lambda: calculate_range(listbox))
-  stats_menu.add_command(label="Quartiles", command=lambda: calculate_quartiles(listbox))
-  stats_menu.add_command(label="Interquartile Range (IQR)", command=lambda: calculate_iqr(listbox))
-  stats_menu.add_command(label="Minimum", command=lambda: calculate_minimum(listbox))
-  stats_menu.add_command(label="Maximum", command=lambda: calculate_maximum(listbox))
+  stats_menu.add_command(label="Statistics Summary", command=lambda: calculate_statistics_summary(listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
@@ -1570,16 +1540,7 @@ def create_window():
   history_menu.add_command(label="Save Named Version", command=lambda: save_named_version(window, listbox, history_manager))
   stats_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Statistics", menu=stats_menu)
-  stats_menu.add_command(label="Mean", command=lambda: calculate_mean(listbox))
-  stats_menu.add_command(label="Median", command=lambda: calculate_median(listbox))
-  stats_menu.add_command(label="Mode", command=lambda: calculate_mode(listbox))
-  stats_menu.add_command(label="Variance", command=lambda: calculate_variance(listbox))
-  stats_menu.add_command(label="Standard Deviation", command=lambda: calculate_standard_deviation(listbox))
-  stats_menu.add_command(label="Range", command=lambda: calculate_range(listbox))
-  stats_menu.add_command(label="Quartiles", command=lambda: calculate_quartiles(listbox))
-  stats_menu.add_command(label="Interquartile Range (IQR)", command=lambda: calculate_iqr(listbox))
-  stats_menu.add_command(label="Minimum", command=lambda: calculate_minimum(listbox))
-  stats_menu.add_command(label="Maximum", command=lambda: calculate_maximum(listbox))
+  stats_menu.add_command(label="Statistics Summary", command=lambda: calculate_statistics_summary(listbox))
   transform_menu = tk.Menu(menubar, tearoff=0)
   menubar.add_cascade(label="Transform", menu=transform_menu)
   normalize_menu = tk.Menu(transform_menu, tearoff=0)
