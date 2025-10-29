@@ -689,14 +689,16 @@ def open_file(window, listbox):
 def add_all_numbers(window, listbox, history_manager, version_label):
   global counter
   numbers = listbox.get(0, tk.END)
-  if len(numbers) < 2:
-        messagebox.showerror("Error", "At least two numbers are required for addition.", parent=window)
-        return
   if not numbers:
     messagebox.showerror("Error", "The list is empty, cannot perform addition.", parent=window)
     return
+  if len(numbers) < 2:
+        messagebox.showerror("Error", "At least two numbers are required for addition.", parent=window)
+        return
   try:
-    total = sum(validate_input(number.split(". ")[1]) for number in numbers)
+    # Use helper to get numbers as strings, then validate and sum
+    number_strs = get_numbers_from_listbox(listbox, as_float=False)
+    total = sum(validate_input(num) for num in number_strs)
     clear_list(listbox, history_manager, show_message=False)
     listbox.insert(tk.END, f"{counter}.{total}")
     history_manager.add_state(list(listbox.get(0, tk.END)), name="Addition Result")
@@ -717,7 +719,8 @@ def subtract_numbers(window, listbox, history_manager, version_label):
                            parent=window)
       return
     try:
-      result = validate_input(numbers[0].split(". ")[1]) - sum(validate_input(num.split(". ")[1]) for num in numbers[1:])
+      number_strs = get_numbers_from_listbox(listbox, as_float=False)
+      result = validate_input(number_strs[0]) - sum(validate_input(num) for num in number_strs[1:])
       clear_list(listbox, history_manager, show_message=False)
       listbox.insert(tk.END, f"{counter}.{result}")
       history_manager.add_state(list(listbox.get(0, tk.END)), name = "Subtraction Result")
@@ -736,9 +739,10 @@ def multiply_all_numbers(window, listbox, history_manager, version_label):
       messagebox.showerror("Error", "At least two numbers are required for multiplication.", parent=window)
       return
     try:
+        number_strs = get_numbers_from_listbox(listbox, as_float=False)
         total = 1
-        for num in numbers:
-            total *= validate_input(num.split(". ")[1])
+        for num in number_strs:
+            total *= validate_input(num)
         clear_list(listbox, history_manager, show_message=False)
         listbox.insert(tk.END, f"{counter}. {total}")
         history_manager.add_state(list(listbox.get(0, tk.END)), name="Multiplication Result")
@@ -757,9 +761,10 @@ def divide_all_numbers(window, listbox, history_manager, version_label):
       messagebox.showerror("Error", "At least two numbers are required for division.", parent=window)
       return
     try:
-        result = validate_input(numbers[0].split(". ")[1])
-        for num in numbers[1:]:
-            divisor = validate_input(num.split(". ")[1])
+        number_strs = get_numbers_from_listbox(listbox, as_float=False)
+        result = validate_input(number_strs[0])
+        for num in number_strs[1:]:
+            divisor = validate_input(num)
             if divisor == 0:
                 raise ZeroDivisionError("Cannot divide by zero!")
             result /= divisor
