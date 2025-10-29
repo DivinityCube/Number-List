@@ -1115,7 +1115,8 @@ def export_to_csv(window, listbox):
     try:
         with open(file_path, mode='w', newline="") as file:
             writer = csv.writer(file)
-            writer.writerow([number.split(". ")[1] for number in listbox.get(0, tk.END)])
+            numbers = get_numbers_from_listbox(listbox, as_float=False)
+            writer.writerow(numbers)
         update_status(status_label, f"List exported to CSV: {os.path.basename(file_path)}.")
         messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
     except Exception as e:
@@ -1135,8 +1136,9 @@ def export_to_excel(window, listbox):
     try:
         workbook = openpyxl.Workbook()
         sheet = workbook.active
-        for i, number in enumerate(listbox.get(0, tk.END), start=1):
-            sheet.cell(row=i, column=1, value=number.split(". ")[1])
+        numbers = get_numbers_from_listbox(listbox, as_float=False)
+        for i, number in enumerate(numbers, start=1):
+            sheet.cell(row=i, column=1, value=number)
         workbook.save(file_path)
         update_status(status_label, f"List exported to .xlsx: {os.path.basename(file_path)}.")
         messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
@@ -1155,7 +1157,7 @@ def export_to_json(window, listbox):
         return
 
     try:
-        data = [number.split(". ")[1] for number in listbox.get(0, tk.END)]
+        data = get_numbers_from_listbox(listbox, as_float=False)
         with open(file_path, 'w') as file:
             json.dump(data, file, indent=4)
         update_status(status_label, f"List exported to JSON: {os.path.basename(file_path)}.")
@@ -1195,7 +1197,8 @@ def copy_to_clipboard(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot copy an empty list.", parent=window)
     return
     
-  data = "\n".join([number.split(". ")[1] for number in numbers])
+  number_strs = get_numbers_from_listbox(listbox, as_float=False)
+  data = "\n".join(number_strs)
   window.clipboard_clear()
   window.clipboard_append(data)
   messagebox.showinfo("Copy", "List copied to clipboard!", parent=window)
@@ -1206,7 +1209,8 @@ def share_via_email(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot share an empty list.", parent=window)
     return
   
-  data = "\n".join([number.split(". ")[1] for number in numbers])
+  number_strs = get_numbers_from_listbox(listbox, as_float=False)
+  data = "\n".join(number_strs)
   subject = "My Number List"
   body = f"Here is my number list:\n\n{data}"
   body = body.replace("\n", "%0D%0A")
