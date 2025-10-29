@@ -1197,8 +1197,7 @@ def copy_to_clipboard(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot copy an empty list.", parent=window)
     return
     
-  number_strs = get_numbers_from_listbox(listbox, as_float=False)
-  data = "\n".join(number_strs)
+  data = "\n".join(get_numbers_from_listbox(listbox, as_float=False))
   window.clipboard_clear()
   window.clipboard_append(data)
   messagebox.showinfo("Copy", "List copied to clipboard!", parent=window)
@@ -1209,8 +1208,7 @@ def share_via_email(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot share an empty list.", parent=window)
     return
   
-  number_strs = get_numbers_from_listbox(listbox, as_float=False)
-  data = "\n".join(number_strs)
+  data = "\n".join(get_numbers_from_listbox(listbox, as_float=False))
   subject = "My Number List"
   body = f"Here is my number list:\n\n{data}"
   body = body.replace("\n", "%0D%0A")
