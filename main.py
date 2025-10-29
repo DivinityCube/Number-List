@@ -29,6 +29,24 @@ listbox = None
 counter = 1
 SESSION_FILE = "session.json"
 
+def get_numbers_from_listbox(listbox, as_float=True):
+    """
+    Helper function to extract numbers from listbox items.
+    
+    Args:
+        listbox: The tkinter Listbox widget
+        as_float: If True, convert to float; if False, return as strings
+    
+    Returns:
+        List of numbers (float or string depending on as_float parameter)
+    """
+    items = listbox.get(0, tk.END)
+    if as_float:
+        return [float(item.split(". ")[1]) for item in items]
+    else:
+        return [item.split(". ")[1] for item in items]
+
+
 def calculate_correlation_and_covariance(window, listbox):
     try:
         data = [json.loads(row.split(". ")[1]) for row in listbox.get(0, tk.END)]
@@ -62,7 +80,7 @@ def save_statistics_to_file(title, results):
             messagebox.showerror("Error", f"Failed to save statistics: {e}")
 
 def calculate_percentile_range(window, listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     if not numbers:
         messagebox.showerror("Error", "The list is empty! Cannot calculate percentiles.", parent=window)
         return
@@ -94,7 +112,7 @@ def calculate_percentile_range(window, listbox):
 
 def calculate_statistics_summary(listbox):
     """Calculate and display a comprehensive statistics summary for the list."""
-    raw_numbers = [item.split(". ")[1] for item in listbox.get(0, tk.END)]
+    raw_numbers = get_numbers_from_listbox(listbox, as_float=False)
     try:
         numbers = [float(num) for num in raw_numbers]
     except ValueError:
@@ -162,14 +180,16 @@ def show_results(title, results):
     tk.Button(button_frame, text="Close", command=results_window.destroy).pack(side='left', padx=5)
 
 def remove_duplicates(listbox):
-    unique_items = []
+    # Use dict to maintain order while removing duplicates (Python 3.7+)
+    # This is O(n) instead of O(n²) with list.append + 'in' check
+    seen = {}
     for i in range(listbox.size()):
         item = listbox.get(i).split(". ")[1]
-        if item not in unique_items:
-            unique_items.append(item)
+        if item not in seen:
+            seen[item] = True
     
     listbox.delete(0, tk.END)
-    for i, item in enumerate(unique_items, start=1):
+    for i, item in enumerate(seen.keys(), start=1):
         listbox.insert(tk.END, f"{i}. {item}")
     
     update_status(status_label, "Duplicates removed. List updated.")
@@ -544,11 +564,14 @@ def redo(undo_redo_manager, listbox):
     messagebox.showinfo("Info", "Nothing to redo!")
 
 def update_listbox_numbers(listbox):
-  for i in range(listbox.size()):
-    item = listbox.get(i)
-    number = item.split(". ")[1]
-    listbox.delete(i)
-    listbox.insert(i, f"{i + 1}. {number}")
+  # Get all items at once instead of one-by-one for better performance
+  items = listbox.get(0, tk.END)
+  numbers = [item.split(". ")[1] for item in items]
+  
+  # Batch update: delete all, then insert all
+  listbox.delete(0, tk.END)
+  for i, number in enumerate(numbers, start=1):
+    listbox.insert(tk.END, f"{i}. {number}")
 
 def add_number(window, listbox, entry, undo_redo_manager, history_manager):
     global counter, status_label
@@ -666,14 +689,16 @@ def open_file(window, listbox):
 def add_all_numbers(window, listbox, history_manager, version_label):
   global counter
   numbers = listbox.get(0, tk.END)
-  if len(numbers) < 2:
-        messagebox.showerror("Error", "At least two numbers are required for addition.", parent=window)
-        return
   if not numbers:
     messagebox.showerror("Error", "The list is empty, cannot perform addition.", parent=window)
     return
+  if len(numbers) < 2:
+        messagebox.showerror("Error", "At least two numbers are required for addition.", parent=window)
+        return
   try:
-    total = sum(validate_input(number.split(". ")[1]) for number in numbers)
+    # Use helper to get numbers as strings, then validate and sum
+    number_strs = get_numbers_from_listbox(listbox, as_float=False)
+    total = sum(validate_input(num) for num in number_strs)
     clear_list(listbox, history_manager, show_message=False)
     listbox.insert(tk.END, f"{counter}.{total}")
     history_manager.add_state(list(listbox.get(0, tk.END)), name="Addition Result")
@@ -694,7 +719,8 @@ def subtract_numbers(window, listbox, history_manager, version_label):
                            parent=window)
       return
     try:
-      result = validate_input(numbers[0].split(". ")[1]) - sum(validate_input(num.split(". ")[1]) for num in numbers[1:])
+      number_strs = get_numbers_from_listbox(listbox, as_float=False)
+      result = validate_input(number_strs[0]) - sum(validate_input(num) for num in number_strs[1:])
       clear_list(listbox, history_manager, show_message=False)
       listbox.insert(tk.END, f"{counter}.{result}")
       history_manager.add_state(list(listbox.get(0, tk.END)), name = "Subtraction Result")
@@ -713,9 +739,10 @@ def multiply_all_numbers(window, listbox, history_manager, version_label):
       messagebox.showerror("Error", "At least two numbers are required for multiplication.", parent=window)
       return
     try:
+        number_strs = get_numbers_from_listbox(listbox, as_float=False)
         total = 1
-        for num in numbers:
-            total *= validate_input(num.split(". ")[1])
+        for num in number_strs:
+            total *= validate_input(num)
         clear_list(listbox, history_manager, show_message=False)
         listbox.insert(tk.END, f"{counter}. {total}")
         history_manager.add_state(list(listbox.get(0, tk.END)), name="Multiplication Result")
@@ -734,9 +761,10 @@ def divide_all_numbers(window, listbox, history_manager, version_label):
       messagebox.showerror("Error", "At least two numbers are required for division.", parent=window)
       return
     try:
-        result = validate_input(numbers[0].split(". ")[1])
-        for num in numbers[1:]:
-            divisor = validate_input(num.split(". ")[1])
+        number_strs = get_numbers_from_listbox(listbox, as_float=False)
+        result = validate_input(number_strs[0])
+        for num in number_strs[1:]:
+            divisor = validate_input(num)
             if divisor == 0:
                 raise ZeroDivisionError("Cannot divide by zero!")
             result /= divisor
@@ -891,7 +919,7 @@ def save_bug_report(report):
       messagebox.showinfo("Bug Report", "Bug reported successfully!")
 
 def create_graph(window, listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     if len(numbers) < 2:
         messagebox.showerror("Error", "You need at least two numbers to create a graph!", parent=window)
         return
@@ -919,7 +947,7 @@ def create_graph(window, listbox):
     save_button.pack(pady=10)
   
 def create_advanced_graph(window, listbox):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     if len(numbers) < 2:
         messagebox.showerror("Error", "You need at least two numbers to create a graph!", parent=window)
         return
@@ -1087,7 +1115,8 @@ def export_to_csv(window, listbox):
     try:
         with open(file_path, mode='w', newline="") as file:
             writer = csv.writer(file)
-            writer.writerow([number.split(". ")[1] for number in listbox.get(0, tk.END)])
+            numbers = get_numbers_from_listbox(listbox, as_float=False)
+            writer.writerow(numbers)
         update_status(status_label, f"List exported to CSV: {os.path.basename(file_path)}.")
         messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
     except Exception as e:
@@ -1107,8 +1136,9 @@ def export_to_excel(window, listbox):
     try:
         workbook = openpyxl.Workbook()
         sheet = workbook.active
-        for i, number in enumerate(listbox.get(0, tk.END), start=1):
-            sheet.cell(row=i, column=1, value=number.split(". ")[1])
+        numbers = get_numbers_from_listbox(listbox, as_float=False)
+        for i, number in enumerate(numbers, start=1):
+            sheet.cell(row=i, column=1, value=number)
         workbook.save(file_path)
         update_status(status_label, f"List exported to .xlsx: {os.path.basename(file_path)}.")
         messagebox.showinfo("Success", f"List exported successfully to {file_path}", parent=window)
@@ -1127,7 +1157,7 @@ def export_to_json(window, listbox):
         return
 
     try:
-        data = [number.split(". ")[1] for number in listbox.get(0, tk.END)]
+        data = get_numbers_from_listbox(listbox, as_float=False)
         with open(file_path, 'w') as file:
             json.dump(data, file, indent=4)
         update_status(status_label, f"List exported to JSON: {os.path.basename(file_path)}.")
@@ -1167,7 +1197,7 @@ def copy_to_clipboard(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot copy an empty list.", parent=window)
     return
     
-  data = "\n".join([number.split(". ")[1] for number in numbers])
+  data = "\n".join(get_numbers_from_listbox(listbox, as_float=False))
   window.clipboard_clear()
   window.clipboard_append(data)
   messagebox.showinfo("Copy", "List copied to clipboard!", parent=window)
@@ -1178,7 +1208,7 @@ def share_via_email(window, listbox):
     messagebox.showerror("Error", "The list is empty! Cannot share an empty list.", parent=window)
     return
   
-  data = "\n".join([number.split(". ")[1] for number in numbers])
+  data = "\n".join(get_numbers_from_listbox(listbox, as_float=False))
   subject = "My Number List"
   body = f"Here is my number list:\n\n{data}"
   body = body.replace("\n", "%0D%0A")
@@ -1189,7 +1219,7 @@ def share_via_email(window, listbox):
   messagebox.showinfo("Share", "Mailto link copied to clipboard! Paste it in your mail client.", parent=window)
 
 def apply_transformation(window, listbox, transformation, **kwargs):
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     transformer = DataTransformer(numbers)
 
     if listbox.size() == 0:
@@ -1315,10 +1345,7 @@ def create_transformation_window(window, listbox, transformation):
                   command=lambda: apply_transformation(window, listbox, transformation)).pack(pady=10)
 
 def create_histogram(window, listbox):
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     if not numbers:
         messagebox.showerror("Error", "The list is empty! Cannot create a histogram.", parent=window)
         return
@@ -1347,10 +1374,7 @@ def create_histogram(window, listbox):
     save_button.pack(pady=10)
 
 def create_box_plot(window, listbox):
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-    numbers = [float(item.split(". ")[1]) for item in listbox.get(0, tk.END)]
+    numbers = get_numbers_from_listbox(listbox, as_float=True)
     if not numbers:
         messagebox.showerror("Error", "The list is empty! Cannot create a box plot.", parent=window)
         return
