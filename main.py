@@ -46,25 +46,73 @@ def get_numbers_from_listbox(listbox, as_float=True):
     else:
         return [item.split(". ")[1] for item in items]
 
-
 def calculate_correlation_and_covariance(window, listbox):
-    try:
-        data = [json.loads(row.split(". ")[1]) for row in listbox.get(0, tk.END)]
-        if not all(isinstance(row, list) and len(row) == len(data[0]) for row in data):
-            raise ValueError("Data must be a valid 2D array.")
+    # 1. Get the Primary Dataset (X) from the Listbox
+    data_x = get_numbers_from_listbox(listbox, as_float=True)
+    
+    if len(data_x) < 2:
+        messagebox.showerror("Error", "You need at least two numbers in the list to calculate stats.", parent=window)
+        return
 
-        df = pd.DataFrame(data)
+    # 2. Ask the user for the Secondary Dataset (Y)
+    response = messagebox.askokcancel(
+        "Select Comparison Data", 
+        "Correlation requires two datasets.\n\n"
+        "Dataset A: Your current list.\n"
+        "Dataset B: A file you select now.\n\n"
+        "Click OK to select a file (CSV, Excel, etc.) to compare against."
+    )
+    
+    if not response:
+        return
+
+    file_path = filedialog.askopenfilename(
+        title="Select Second Dataset",
+        filetypes=[
+            ('Excel Files', '*.xls;*.xlsx'), 
+            ('CSV Files', '*.csv'),
+            ('ODF Files', '*.odt;*.ods'),
+            ('All Files', '*.*')
+        ],
+        parent=window
+    )
+
+    if not file_path:
+        return
+
+    try:
+        # 3. Load Secondary Dataset (Y)
+        data_y = load_numbers_from_file(file_path)
+
+        # 4. Validation: Length Mismatch Check
+        if len(data_x) != len(data_y):
+            messagebox.showerror(
+                "Data Mismatch", 
+                f"Datasets must be the same length!\n\n"
+                f"Current List: {len(data_x)} items\n"
+                f"Selected File: {len(data_y)} items", 
+                parent=window
+            )
+            return
+
+        # 5. Calculation
+        df = pd.DataFrame({
+            'Current List': data_x, 
+            'Imported File': data_y
+        })
+        
         correlation_matrix = df.corr()
         covariance_matrix = df.cov()
 
         results = [
-            "Correlation Matrix:\n" + correlation_matrix.to_string(),
-            "\nCovariance Matrix:\n" + covariance_matrix.to_string()
+            "--- Correlation Matrix ---\n" + correlation_matrix.to_string(),
+            "\n--- Covariance Matrix ---\n" + covariance_matrix.to_string()
         ]
+        
         show_results("Correlation and Covariance", "\n\n".join(results))
 
     except Exception as e:
-        messagebox.showerror("Error", f"Failed to calculate correlation and covariance: {e}", parent=window)
+        messagebox.showerror("Error", f"Failed to calculate: {e}", parent=window)
 
 def save_statistics_to_file(title, results):
     file_path = filedialog.asksaveasfilename(defaultextension=".txt",
@@ -606,6 +654,52 @@ def clear_list(listbox, history_manager, show_message=True):
         session_manager.clear_session()
         update_status(status_label, "List cleared.")
 
+def load_numbers_from_file(filename):
+    """Reads numbers from a file and returns them as a list of values."""
+    values = []
+    try:
+        if filename.endswith('.xls'):
+            book = xlrd.open_workbook(filename)
+            sheet = book.sheet_by_index(0)
+            for i in range(sheet.rows):
+                values.append(str(sheet.cell_value(i, 0)))
+        elif filename.endswith('.csv'):
+            with open(filename, 'r') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    for number in row:
+                        values.append(number)
+        elif filename.endswith('.odt'):
+            textdoc = load(filename)
+            allparas = textdoc.getElementsByType(text.P)
+            for para in allparas:
+                values.append(teletype.extractText(para))
+        elif filename.endswith('.ods'):
+            spreadsheet = ezodf.opendoc(filename).sheets[0]
+            for row in spreadsheet.rows():
+                for cell in row:
+                    if cell.value is not None:
+                        values.append(str(cell.value))
+        elif filename.endswith('.xlsx'):
+            workbook = openpyxl.load_workbook(filename)
+            sheet = workbook.active
+            for row in sheet.iter_cols(min_row=1, min_col=1, values_only=True):
+                for cell in row:
+                    if cell is not None:
+                        values.append(str(cell))
+        
+        # Validate and clean the numbers
+        valid_numbers = []
+        for val in values:
+            try:
+                valid_numbers.append(validate_input(val))
+            except ValueError:
+                continue # Skip invalid entries
+        return valid_numbers
+
+    except Exception as e:
+        raise e
+
 from odf import text, teletype
 from odf.opendocument import load
 
@@ -877,13 +971,13 @@ def about(window):
     about_window.protocol("WM_DELETE_WINDOW", close_about)
   title_label = tk.Label(about_window, text="About Number List:")
   title_label.pack()
-  update_label = tk.Label(about_window, text="The 'More Statistics' Update")
+  update_label = tk.Label(about_window, text="The 'Correlation' Update")
   update_label.pack()
-  version_label = tk.Label(about_window, text="Version 0.74")
+  version_label = tk.Label(about_window, text="Version 0.75 BETA")
   version_label.pack()
   contributor_label = tk.Label(about_window, text="Contributors:")
   contributor_label.pack()
-  contributor_label2 = tk.Label(about_window, text="Tay Rake 2023 - 2024")
+  contributor_label2 = tk.Label(about_window, text="Tay Rake 2023 - 2025")
   contributor_label2.pack()
 
 def change_theme(theme):
